@@ -3,6 +3,8 @@
   "version": "1.0.0",
   "description": "Сервер мониторинга торговых агентов",
   "main": "server.js",
+"scripts": {
+    "start": "node index.js",
   "scripts": {
     "start": "node server.js",
     "dev": "nodemon server.js"
