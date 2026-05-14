@@ -52,7 +52,7 @@ app.post('/auth/login', async (req, res) => {
       `SELECT a.*, d.name AS department_name
        FROM agents a
        JOIN departments d ON d.id = a.department_id
-       WHERE a.login = $1 AND a.is_active = TRUE`,
+       WHERE LOWER(a.login) = LOWER($1) AND a.is_active = TRUE`,
       [login]
     );
 
