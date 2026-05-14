@@ -349,7 +349,56 @@ app.get('/agent/:id/activity', adminAuth, async (req, res) => {
     console.error(err);
     res.status(500).json({ error: 'Ошибка' });
   }
-});});app.listen(PORT, () => {
+// Получить всех агентов
+app.get('/agents', adminAuth, async (req, res) => {
+  try {
+    const result = await db.query(`
+      SELECT a.id, a.full_name, a.phone, a.login, a.is_active, d.name AS department
+      FROM agents a
+      JOIN departments d ON d.id = a.department_id
+      ORDER BY a.full_name
+    `);
+    res.json(result.rows);
+  } catch (err) { res.status(500).json({ error: 'Ошибка' }); }
+});
+
+// Получить все отделы
+app.get('/departments', adminAuth, async (req, res) => {
+  try {
+    const result = await db.query(`SELECT id, name FROM departments ORDER BY name`);
+    res.json(result.rows);
+  } catch (err) { res.status(500).json({ error: 'Ошибка' }); }
+});
+
+// Добавить агента
+app.post('/agents', adminAuth, async (req, res) => {
+  const { full_name, phone, login, password, department_id } = req.body;
+  if (!full_name || !login || !password || !department_id) {
+    return res.status(400).json({ error: 'Заполни все поля' });
+  }
+  try {
+    const hash = await bcrypt.hash(password, 10);
+    await db.query(
+      `INSERT INTO agents (full_name, phone, login, password_hash, department_id)
+       VALUES ($1, $2, $3, $4, $5)`,
+      [full_name, phone || '', login, hash, department_id]
+    );
+    res.json({ ok: true });
+  } catch (err) {
+    if (err.code === '23505') return res.status(400).json({ error: 'Такой логин уже существует' });
+    res.status(500).json({ error: 'Ошибка' });
+  }
+});
+
+// Удалить агента
+app.delete('/agents/:id', adminAuth, async (req, res) => {
+  try {
+    await db.query(`UPDATE agents SET is_active = FALSE WHERE id = $1`, [req.params.id]);
+    res.json({ ok: true });
+  } catch (err) { res.status(500).json({ error: 'Ошибка' }); }
+});
+
+app.listen(PORT, () => {
   console.log(`🚀 Сервер запущен на порту ${PORT}`);
   console.log(`   http://localhost:${PORT}`);
 });
