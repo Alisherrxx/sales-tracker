@@ -329,7 +329,27 @@ app.get('/visits/today', adminAuth, async (req, res) => {
     console.error(err);
     res.status(500).json({ error: 'Ошибка' });
   }
-});app.listen(PORT, () => {
+app.get('/agent/:id/activity', adminAuth, async (req, res) => {
+  const { id } = req.params;
+  try {
+    const visits = await db.query(`
+      SELECT v.visited_at, v.result, o.name AS outlet_name
+      FROM visits v
+      JOIN outlets o ON o.id = v.outlet_id
+      WHERE v.agent_id = $1 AND v.visited_at >= CURRENT_DATE
+      ORDER BY v.visited_at ASC
+    `, [id]);
+    const locations = await db.query(`
+      SELECT MIN(recorded_at) AS first_seen, MAX(recorded_at) AS last_seen, COUNT(*) AS points
+      FROM locations
+      WHERE agent_id = $1 AND recorded_at >= CURRENT_DATE
+    `, [id]);
+    res.json({ visits: visits.rows, locations: locations.rows[0] });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Ошибка' });
+  }
+});});app.listen(PORT, () => {
   console.log(`🚀 Сервер запущен на порту ${PORT}`);
   console.log(`   http://localhost:${PORT}`);
 });
