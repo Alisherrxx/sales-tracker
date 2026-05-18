@@ -338,7 +338,112 @@ app.post('/routes', adminAuth, async (req, res) => {
     console.error(err);
     res.status(500).json({ error: 'Ошибка' });
   }
-}); app.listen(PORT, () => {
+// Детальная информация по агенту за день
+app.get('/agent/:id/detail', adminAuth, async (req, res) => {
+  const { id } = req.params;
+  const { date } = req.query;
+  const targetDate = date || new Date().toISOString().split('T')[0];
+  try {
+    const agent = await db.query(`
+      SELECT a.id, a.full_name, a.phone, d.name AS department
+      FROM agents a JOIN departments d ON d.id = a.department_id
+      WHERE a.id = $1
+    `, [id]);
+
+    const route = await db.query(`
+      SELECT rs.id AS stop_id, rs.planned_order, rs.status AS stop_status,
+        o.name AS outlet_name, o.address,
+        v.id AS visit_id, v.result, v.note, v.visited_at, v.latitude, v.longitude
+      FROM routes r
+      JOIN route_stops rs ON rs.route_id = r.id
+      JOIN outlets o ON o.id = rs.outlet_id
+      LEFT JOIN visits v ON v.route_stop_id = rs.id
+      WHERE r.agent_id = $1 AND r.route_date = $2
+      ORDER BY rs.planned_order
+    `, [id, targetDate]);
+
+    const sales = await db.query(`
+      SELECT s.product_name, s.quantity, s.amount, o.name AS outlet_name, v.visited_at
+      FROM sales s
+      JOIN visits v ON v.id = s.visit_id
+      JOIN outlets o ON o.id = v.outlet_id
+      WHERE v.agent_id = $1 AND v.visited_at >= $2::date AND v.visited_at < $2::date + INTERVAL '1 day'
+      ORDER BY v.visited_at
+    `, [id, targetDate]);
+
+    const stats = await db.query(`
+      SELECT COUNT(DISTINCT v.id) AS total_visits,
+        COUNT(DISTINCT s.id) AS total_sales,
+        COALESCE(SUM(s.amount), 0) AS total_amount
+      FROM visits v
+      LEFT JOIN sales s ON s.visit_id = v.id
+      WHERE v.agent_id = $1 AND v.visited_at >= $2::date AND v.visited_at < $2::date + INTERVAL '1 day'
+    `, [id, targetDate]);
+
+    res.json({
+      agent: agent.rows[0],
+      route: route.rows,
+      sales: sales.rows,
+      stats: stats.rows[0]
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Ошибка' });
+  }
+});
+ // Детальная информация по агенту за день
+app.get('/agent/:id/detail', adminAuth, async (req, res) => {
+  const { id } = req.params;
+  const { date } = req.query;
+  const targetDate = date || new Date().toISOString().split('T')[0];
+  try {
+    const agent = await db.query(`
+      SELECT a.id, a.full_name, a.phone, d.name AS department
+      FROM agents a JOIN departments d ON d.id = a.department_id
+      WHERE a.id = $1
+    `, [id]);
+
+    const route = await db.query(`
+      SELECT rs.id AS stop_id, rs.planned_order, rs.status AS stop_status,
+        o.name AS outlet_name, o.address,
+        v.id AS visit_id, v.result, v.note, v.visited_at, v.latitude, v.longitude
+      FROM routes r
+      JOIN route_stops rs ON rs.route_id = r.id
+      JOIN outlets o ON o.id = rs.outlet_id
+      LEFT JOIN visits v ON v.route_stop_id = rs.id
+      WHERE r.agent_id = $1 AND r.route_date = $2
+      ORDER BY rs.planned_order
+    `, [id, targetDate]);
+
+    const sales = await db.query(`
+      SELECT s.product_name, s.quantity, s.amount, o.name AS outlet_name, v.visited_at
+      FROM sales s
+      JOIN visits v ON v.id = s.visit_id
+      JOIN outlets o ON o.id = v.outlet_id
+      WHERE v.agent_id = $1 AND v.visited_at >= $2::date AND v.visited_at < $2::date + INTERVAL '1 day'
+      ORDER BY v.visited_at
+    `, [id, targetDate]);
+
+    const stats = await db.query(`
+      SELECT COUNT(DISTINCT v.id) AS total_visits,
+        COUNT(DISTINCT s.id) AS total_sales,
+        COALESCE(SUM(s.amount), 0) AS total_amount
+      FROM visits v
+      LEFT JOIN sales s ON s.visit_id = v.id
+      WHERE v.agent_id = $1 AND v.visited_at >= $2::date AND v.visited_at < $2::date + INTERVAL '1 day'
+    `, [id, targetDate]);
+
+    res.json({
+      agent: agent.rows[0],
+      route: route.rows,
+      sales: sales.rows,
+      stats: stats.rows[0]
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Ошибка' });
+  }
+}); }); app.listen(PORT, () => {
   console.log(`Сервер запущен на порту ${PORT}`);
   console.log(`http://localhost:${PORT}`);
 });
