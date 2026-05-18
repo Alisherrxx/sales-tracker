@@ -339,7 +339,7 @@ app.post('/routes', adminAuth, async (req, res) => {
     res.status(500).json({ error: 'Ошибка' });
   }
 // Детальная информация по агенту за день
-app.get('/agent/:id/detail', adminAuth, async (req, res) => {
+app.get('/agents/:id/detail', adminAuth, async (req, res) => {
   const { id } = req.params;
   const { date } = req.query;
   const targetDate = date || new Date().toISOString().split('T')[0];
@@ -392,7 +392,7 @@ app.get('/agent/:id/detail', adminAuth, async (req, res) => {
   }
 });
  // Детальная информация по агенту за день
-app.get('/agent/:id/detail', adminAuth, async (req, res) => {
+app.get('/agents/:id/detail', adminAuth, async (req, res) => {
   const { id } = req.params;
   const { date } = req.query;
   const targetDate = date || new Date().toISOString().split('T')[0];
