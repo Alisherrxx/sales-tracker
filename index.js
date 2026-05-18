@@ -263,7 +263,6 @@ app.delete('/agents/:id', adminAuth, async (req, res) => {
   } catch (err) { res.status(500).json({ error: 'Ошибка' }); }
 });
 
-// Получить все торговые точки
 app.get('/outlets', adminAuth, async (req, res) => {
   try {
     const result = await db.query(`SELECT id, name, address, latitude, longitude, category, is_active FROM outlets ORDER BY name`);
@@ -271,7 +270,6 @@ app.get('/outlets', adminAuth, async (req, res) => {
   } catch (err) { res.status(500).json({ error: 'Ошибка' }); }
 });
 
-// Добавить торговую точку
 app.post('/outlets', adminAuth, async (req, res) => {
   const { name, address, latitude, longitude, category } = req.body;
   if (!name) return res.status(400).json({ error: 'Укажи название точки' });
@@ -284,34 +282,6 @@ app.post('/outlets', adminAuth, async (req, res) => {
   } catch (err) { res.status(500).json({ error: 'Ошибка' }); }
 });
 
-// Удалить торговую точку
-app.delete('/outlets/:id', adminAuth, async (req, res) => {
-  try {
-    await db.query(`UPDATE outlets SET is_active = FALSE WHERE id = $1`, [req.params.id]);
-    res.json({ ok: true });
-  } catch (err) { res.status(500).json({ error: 'Ошибка' }); }
-// Получить все торговые точки
-app.get('/outlets', adminAuth, async (req, res) => {
-  try {
-    const result = await db.query(`SELECT id, name, address, latitude, longitude, category, is_active FROM outlets ORDER BY name`);
-    res.json(result.rows);
-  } catch (err) { res.status(500).json({ error: 'Ошибка' }); }
-});
-
-// Добавить торговую точку
-app.post('/outlets', adminAuth, async (req, res) => {
-  const { name, address, latitude, longitude, category } = req.body;
-  if (!name) return res.status(400).json({ error: 'Укажи название точки' });
-  try {
-    await db.query(
-      `INSERT INTO outlets (name, address, latitude, longitude, category) VALUES ($1, $2, $3, $4, $5)`,
-      [name, address || '', latitude || null, longitude || null, category || '']
-    );
-    res.json({ ok: true });
-  } catch (err) { res.status(500).json({ error: 'Ошибка' }); }
-});
-
-// Удалить торговую точку
 app.delete('/outlets/:id', adminAuth, async (req, res) => {
   try {
     await db.query(`UPDATE outlets SET is_active = FALSE WHERE id = $1`, [req.params.id]);
@@ -319,6 +289,7 @@ app.delete('/outlets/:id', adminAuth, async (req, res) => {
   } catch (err) { res.status(500).json({ error: 'Ошибка' }); }
 });
 
-app.listen(PORT, () => {  console.log(`Сервер запущен на порту ${PORT}`);
+app.listen(PORT, () => {
+  console.log(`Сервер запущен на порту ${PORT}`);
   console.log(`http://localhost:${PORT}`);
 });
