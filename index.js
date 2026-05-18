@@ -338,17 +338,7 @@ app.post('/routes', adminAuth, async (req, res) => {
     console.error(err);
     res.status(500).json({ error: 'Ошибка' });
   }
-// Детальная информация по агенту за день
-app.get('/agents/:id/detail', adminAuth, async (req, res) => {
-  const { id } = req.params;
-  const { date } = req.query;
-  const targetDate = date || new Date().toISOString().split('T')[0];
-  try {
-    const agent = await db.query(`
-      SELECT a.id, a.full_name, a.phone, d.name AS department
-      FROM agents a JOIN departments d ON d.id = a.department_id
-      WHERE a.id = $1
-    `, [id]);
+
 
     const route = await db.query(`
       SELECT rs.id AS stop_id, rs.planned_order, rs.status AS stop_status,
@@ -443,7 +433,8 @@ app.get('/agents/:id/detail', adminAuth, async (req, res) => {
     console.error(err);
     res.status(500).json({ error: 'Ошибка' });
   }
-}); }); app.listen(PORT, () => {
-  console.log(`Сервер запущен на порту ${PORT}`);
+});
+
+app.listen(PORT, () => {  console.log(`Сервер запущен на порту ${PORT}`);
   console.log(`http://localhost:${PORT}`);
 });
