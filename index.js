@@ -289,7 +289,56 @@ app.delete('/outlets/:id', adminAuth, async (req, res) => {
   } catch (err) { res.status(500).json({ error: 'Ошибка' }); }
 });
 
-app.listen(PORT, () => {
+// Получить маршрут агента на дату
+app.get('/routes', adminAuth, async (req, res) => {
+  const { agent_id, date } = req.query;
+  try {
+    const result = await db.query(`
+      SELECT r.id, r.route_date, r.status,
+        rs.id AS stop_id, rs.planned_order, rs.status AS stop_status,
+        o.id AS outlet_id, o.name AS outlet_name, o.address
+      FROM routes r
+      JOIN route_stops rs ON rs.route_id = r.id
+      JOIN outlets o ON o.id = rs.outlet_id
+      WHERE r.agent_id = $1 AND r.route_date = $2
+      ORDER BY rs.planned_order
+    `, [agent_id, date]);
+    res.json(result.rows);
+  } catch (err) { res.status(500).json({ error: 'Ошибка' }); }
+});
+
+// Создать маршрут
+app.post('/routes', adminAuth, async (req, res) => {
+  const { agent_id, date, outlet_ids } = req.body;
+  if (!agent_id || !date || !outlet_ids || !outlet_ids.length) {
+    return res.status(400).json({ error: 'Укажи агента, дату и точки' });
+  }
+  try {
+    // Удаляем старый маршрут если есть
+    const existing = await db.query(`SELECT id FROM routes WHERE agent_id = $1 AND route_date = $2`, [agent_id, date]);
+    if (existing.rows.length) {
+      await db.query(`DELETE FROM route_stops WHERE route_id = $1`, [existing.rows[0].id]);
+      await db.query(`DELETE FROM routes WHERE id = $1`, [existing.rows[0].id]);
+    }
+    // Создаём новый маршрут
+    const route = await db.query(
+      `INSERT INTO routes (agent_id, route_date, status) VALUES ($1, $2, 'planned') RETURNING id`,
+      [agent_id, date]
+    );
+    const routeId = route.rows[0].id;
+    // Добавляем точки
+    for (let i = 0; i < outlet_ids.length; i++) {
+      await db.query(
+        `INSERT INTO route_stops (route_id, outlet_id, planned_order) VALUES ($1, $2, $3)`,
+        [routeId, outlet_ids[i], i + 1]
+      );
+    }
+    res.json({ ok: true });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Ошибка' });
+  }
+}); app.listen(PORT, () => {
   console.log(`Сервер запущен на порту ${PORT}`);
   console.log(`http://localhost:${PORT}`);
 });
