@@ -163,8 +163,8 @@ app.get('/stats/today', adminAuth, async (req, res) => {
       SELECT a.id, a.full_name, d.name AS department,
         COUNT(DISTINCT v.id) AS total_visits,
         COUNT(DISTINCT s.id) AS total_sales,
-        COALESCE(SUM(s.amount), 0) AS total_amount,
-        MAX(l.recorded_at) AS last_seen
+        COALESCE((SELECT SUM(s2.amount) FROM sales s2 JOIN visits v2 ON v2.id = s2.visit_id WHERE v2.agent_id = a.id AND v2.visited_at >= CURRENT_DATE), 0) AS total_amount,
+        (SELECT MAX(l2.recorded_at) FROM locations l2 WHERE l2.agent_id = a.id) AS last_seen
       FROM agents a
       JOIN departments d ON d.id = a.department_id
       LEFT JOIN visits v ON v.agent_id = a.id AND v.visited_at >= CURRENT_DATE
