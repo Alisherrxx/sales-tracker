@@ -11,6 +11,14 @@ const PORT = process.env.PORT || 3000;
 app.use(cors());
 app.use(express.json());
 
+function calcDistance(lat1, lon1, lat2, lon2) {
+  const R = 6371000;
+  const dLat = (lat2-lat1)*Math.PI/180;
+  const dLon = (lon2-lon1)*Math.PI/180;
+  const a = Math.sin(dLat/2)*Math.sin(dLat/2)+Math.cos(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*Math.sin(dLon/2)*Math.sin(dLon/2);
+  return R*2*Math.atan2(Math.sqrt(a),Math.sqrt(1-a));
+}
+
 function auth(req, res, next) {
   const header = req.headers.authorization;
   if (!header) return res.status(401).json({ error: 'Нет токена' });
@@ -103,13 +111,18 @@ app.get('/agent/:id/route-today', adminAuth, async (req, res) => {
   }
 });
 
-function calcDistance(lat1, lon1, lat2, lon2) { const R = 6371000; const dLat = (lat2-lat1)*Math.PI/180; const dLon = (lon2-lon
-  const { outlet_id, route_stop_id, latitude, longitude, result, note } = req.body;
+app.post('/visit', auth, async (req, res) => {
+  const { outlet_id, route_stop_id, latitude, longitude, result, note, outlet_lat, outlet_lon } = req.body;
   if (!outlet_id) return res.status(400).json({ error: 'Нужен outlet_id' });
   try {
-    let isNear = null; if (latitude && longitude && currentStop) { } const visitResult = await db.query(
-      `INSERT INTO visits (agent_id, outlet_id, route_stop_id, latitude, longitude, result, note) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id`,
-      [req.agent.id, outlet_id, route_stop_id || null, latitude || null, longitude || null, result || 'visited', note || null, isNear
+    let isNear = null;
+    if (latitude && longitude && outlet_lat && outlet_lon) {
+      const dist = calcDistance(latitude, longitude, outlet_lat, outlet_lon);
+      isNear = dist <= 150;
+    }
+    const visitResult = await db.query(
+      `INSERT INTO visits (agent_id, outlet_id, route_stop_id, latitude, longitude, result, note, is_near) VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING id`,
+      [req.agent.id, outlet_id, route_stop_id || null, latitude || null, longitude || null, result || 'visited', note || null, isNear]
     );
     const visitId = visitResult.rows[0].id;
     if (route_stop_id) {
@@ -141,8 +154,9 @@ app.get('/my-route', auth, async (req, res) => {
   try {
     const result = await db.query(`
       SELECT rs.id AS stop_id, rs.planned_order, rs.status AS stop_status,
-        o.id AS outlet_id, o.name AS outlet_name, o.address, o.latitude, o.longitude, o.category,
-        v.id AS visit_id, v.result AS visit_result, v.visited_at
+        o.id AS outlet_id, o.name AS outlet_name, o.address,
+        o.latitude, o.longitude, o.category,
+        v.id AS visit_id, v.result AS visit_result, v.visited_at, v.is_near
       FROM routes r
       JOIN route_stops rs ON rs.route_id = r.id
       JOIN outlets o ON o.id = rs.outlet_id
@@ -169,7 +183,6 @@ app.get('/stats/today', adminAuth, async (req, res) => {
       JOIN departments d ON d.id = a.department_id
       LEFT JOIN visits v ON v.agent_id = a.id AND v.visited_at >= CURRENT_DATE
       LEFT JOIN sales s ON s.visit_id = v.id
-      LEFT JOIN locations l ON l.agent_id = a.id
       WHERE a.is_active = TRUE
       GROUP BY a.id, a.full_name, d.name
       ORDER BY total_visits DESC
@@ -184,7 +197,7 @@ app.get('/stats/today', adminAuth, async (req, res) => {
 app.get('/visits/today', adminAuth, async (req, res) => {
   try {
     const result = await db.query(`
-      SELECT v.id, v.visited_at, v.result, v.note,
+      SELECT v.id, v.visited_at, v.result, v.note, v.is_near,
         a.full_name AS agent_name, o.name AS outlet_name, o.address,
         COALESCE(SUM(s.amount), 0) AS total_amount
       FROM visits v
@@ -192,7 +205,7 @@ app.get('/visits/today', adminAuth, async (req, res) => {
       JOIN outlets o ON o.id = v.outlet_id
       LEFT JOIN sales s ON s.visit_id = v.id
       WHERE v.visited_at >= CURRENT_DATE
-      GROUP BY v.id, v.visited_at, v.result, v.note, a.full_name, o.name, o.address
+      GROUP BY v.id, v.visited_at, v.result, v.note, v.is_near, a.full_name, o.name, o.address
       ORDER BY v.visited_at DESC
     `);
     res.json(result.rows);
@@ -206,7 +219,7 @@ app.get('/agent/:id/activity', adminAuth, async (req, res) => {
   const { id } = req.params;
   try {
     const visits = await db.query(`
-      SELECT v.visited_at, v.result, o.name AS outlet_name
+      SELECT v.visited_at, v.result, v.is_near, o.name AS outlet_name
       FROM visits v JOIN outlets o ON o.id = v.outlet_id
       WHERE v.agent_id = $1 AND v.visited_at >= CURRENT_DATE
       ORDER BY v.visited_at ASC
@@ -246,7 +259,7 @@ app.get('/agents/:id/detail', adminAuth, async (req, res) => {
     const route = await db.query(`
       SELECT rs.id AS stop_id, rs.planned_order, rs.status AS stop_status,
         o.name AS outlet_name, o.address,
-        v.id AS visit_id, v.result, v.note, v.visited_at
+        v.id AS visit_id, v.result, v.note, v.visited_at, v.is_near
       FROM routes r
       JOIN route_stops rs ON rs.route_id = r.id
       JOIN outlets o ON o.id = rs.outlet_id
