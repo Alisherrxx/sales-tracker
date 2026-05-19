@@ -371,7 +371,8 @@ app.post('/routes', adminAuth, async (req, res) => {
   try {
     const existing = await db.query(`SELECT id FROM routes WHERE agent_id = $1 AND route_date = $2`, [agent_id, date]);
     if (existing.rows.length) {
-      await db.query(`UPDATE visits SET route_stop_id = NULL WHERE route_stop_id IN (SELECT id FROM route_stops WHERE route_id = $1)`
+      await db.query(`UPDATE visits SET route_stop_id = NULL WHERE route_stop_id IN (SELECT id FROM route_stops WHERE route_id = $1)`, [existing.rows[0].id]);
+      await db.query(`DELETE FROM route_stops WHERE route_id = $1`, [existing.rows[0].id]);
       await db.query(`DELETE FROM routes WHERE id = $1`, [existing.rows[0].id]);
     }
     const route = await db.query(
