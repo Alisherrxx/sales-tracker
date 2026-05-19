@@ -21,20 +21,20 @@ function calcDistance(lat1, lon1, lat2, lon2) {
 
 function auth(req, res, next) {
   const header = req.headers.authorization;
-  if (!header) return res.status(401).json({ error: 'Нет токена' });
+  if (!header) return res.status(401).json({ error: 'Net tokena' });
   const token = header.replace('Bearer ', '');
   try {
     req.agent = jwt.verify(token, process.env.JWT_SECRET);
     next();
   } catch {
-    return res.status(401).json({ error: 'Токен недействителен' });
+    return res.status(401).json({ error: 'Token nedeystvitelen' });
   }
 }
 
 function adminAuth(req, res, next) {
   const key = req.headers['x-admin-key'];
   if (key !== process.env.ADMIN_KEY) {
-    return res.status(403).json({ error: 'Нет доступа' });
+    return res.status(403).json({ error: 'Net dostupa' });
   }
   next();
 }
@@ -59,13 +59,13 @@ app.post('/auth/login', async (req, res) => {
     res.json({ token, agent: { id: agent.id, full_name: agent.full_name, department_name: agent.department_name } });
   } catch (err) {
     console.error(err);
-    res.status(500).json({ error: 'Ошибка сервера' });
+    res.status(500).json({ error: 'Oshibka servera' });
   }
 });
 
 app.post('/location', auth, async (req, res) => {
   const { latitude, longitude, accuracy } = req.body;
-  if (!latitude || !longitude) return res.status(400).json({ error: 'Нужны latitude и longitude' });
+  if (!latitude || !longitude) return res.status(400).json({ error: 'Nuzhny latitude i longitude' });
   try {
     await db.query(
       `INSERT INTO locations (agent_id, latitude, longitude, accuracy) VALUES ($1, $2, $3, $4)`,
@@ -74,7 +74,7 @@ app.post('/location', auth, async (req, res) => {
     res.json({ ok: true });
   } catch (err) {
     console.error(err);
-    res.status(500).json({ error: 'Ошибка сохранения координат' });
+    res.status(500).json({ error: 'Oshibka' });
   }
 });
 
@@ -93,7 +93,7 @@ app.get('/agents/live', adminAuth, async (req, res) => {
     res.json(result.rows);
   } catch (err) {
     console.error(err);
-    res.status(500).json({ error: 'Ошибка' });
+    res.status(500).json({ error: 'Oshibka' });
   }
 });
 
@@ -107,13 +107,13 @@ app.get('/agent/:id/route-today', adminAuth, async (req, res) => {
     res.json(result.rows);
   } catch (err) {
     console.error(err);
-    res.status(500).json({ error: 'Ошибка' });
+    res.status(500).json({ error: 'Oshibka' });
   }
 });
 
 app.post('/visit', auth, async (req, res) => {
   const { outlet_id, route_stop_id, latitude, longitude, result, note, outlet_lat, outlet_lon } = req.body;
-  if (!outlet_id) return res.status(400).json({ error: 'Нужен outlet_id' });
+  if (!outlet_id) return res.status(400).json({ error: 'Nuzhen outlet_id' });
   try {
     let isNear = null;
     if (latitude && longitude && outlet_lat && outlet_lon) {
@@ -131,22 +131,22 @@ app.post('/visit', auth, async (req, res) => {
     res.json({ ok: true, visit_id: visitId });
   } catch (err) {
     console.error(err);
-    res.status(500).json({ error: 'Ошибка сохранения визита' });
+    res.status(500).json({ error: 'Oshibka sohraneniya vizita' });
   }
 });
 
 app.post('/sale', auth, async (req, res) => {
   const { visit_id, product_name, quantity, amount } = req.body;
-  if (!visit_id || !product_name || !amount) return res.status(400).json({ error: 'Нужны visit_id, product_name, amount' });
+  if (!visit_id || !product_name || !amount) return res.status(400).json({ error: 'Nuzhny dannye' });
   try {
     const check = await db.query(`SELECT id FROM visits WHERE id = $1 AND agent_id = $2`, [visit_id, req.agent.id]);
-    if (!check.rows.length) return res.status(403).json({ error: 'Визит не найден' });
+    if (!check.rows.length) return res.status(403).json({ error: 'Vizit ne nayden' });
     await db.query(`INSERT INTO sales (visit_id, product_name, quantity, amount) VALUES ($1, $2, $3, $4)`, [visit_id, product_name, quantity || 1, amount]);
     await db.query(`UPDATE visits SET result = 'sold' WHERE id = $1`, [visit_id]);
     res.json({ ok: true });
   } catch (err) {
     console.error(err);
-    res.status(500).json({ error: 'Ошибка' });
+    res.status(500).json({ error: 'Oshibka' });
   }
 });
 
@@ -167,7 +167,7 @@ app.get('/my-route', auth, async (req, res) => {
     res.json(result.rows);
   } catch (err) {
     console.error(err);
-    res.status(500).json({ error: 'Ошибка' });
+    res.status(500).json({ error: 'Oshibka' });
   }
 });
 
@@ -190,7 +190,7 @@ app.get('/stats/today', adminAuth, async (req, res) => {
     res.json(result.rows);
   } catch (err) {
     console.error(err);
-    res.status(500).json({ error: 'Ошибка' });
+    res.status(500).json({ error: 'Oshibka' });
   }
 });
 
@@ -211,7 +211,7 @@ app.get('/visits/today', adminAuth, async (req, res) => {
     res.json(result.rows);
   } catch (err) {
     console.error(err);
-    res.status(500).json({ error: 'Ошибка' });
+    res.status(500).json({ error: 'Oshibka' });
   }
 });
 
@@ -231,7 +231,7 @@ app.get('/agent/:id/activity', adminAuth, async (req, res) => {
     res.json({ visits: visits.rows, locations: locations.rows[0] });
   } catch (err) {
     console.error(err);
-    res.status(500).json({ error: 'Ошибка' });
+    res.status(500).json({ error: 'Oshibka' });
   }
 });
 
@@ -243,7 +243,7 @@ app.get('/agents', adminAuth, async (req, res) => {
       ORDER BY a.full_name
     `);
     res.json(result.rows);
-  } catch (err) { res.status(500).json({ error: 'Ошибка' }); }
+  } catch (err) { res.status(500).json({ error: 'Oshibka' }); }
 });
 
 app.get('/agents/:id/detail', adminAuth, async (req, res) => {
@@ -286,7 +286,7 @@ app.get('/agents/:id/detail', adminAuth, async (req, res) => {
     res.json({ agent: agent.rows[0], route: route.rows, sales: sales.rows, stats: stats.rows[0] });
   } catch (err) {
     console.error(err);
-    res.status(500).json({ error: 'Ошибка' });
+    res.status(500).json({ error: 'Oshibka' });
   }
 });
 
@@ -294,12 +294,12 @@ app.get('/departments', adminAuth, async (req, res) => {
   try {
     const result = await db.query(`SELECT id, name FROM departments ORDER BY name`);
     res.json(result.rows);
-  } catch (err) { res.status(500).json({ error: 'Ошибка' }); }
+  } catch (err) { res.status(500).json({ error: 'Oshibka' }); }
 });
 
 app.post('/agents', adminAuth, async (req, res) => {
   const { full_name, phone, login, password, department_id } = req.body;
-  if (!full_name || !login || !password || !department_id) return res.status(400).json({ error: 'Заполни все поля' });
+  if (!full_name || !login || !password || !department_id) return res.status(400).json({ error: 'Zapolni vse polya' });
   try {
     const hash = await bcrypt.hash(password, 10);
     await db.query(
@@ -308,8 +308,8 @@ app.post('/agents', adminAuth, async (req, res) => {
     );
     res.json({ ok: true });
   } catch (err) {
-    if (err.code === '23505') return res.status(400).json({ error: 'Такой логин уже существует' });
-    res.status(500).json({ error: 'Ошибка' });
+    if (err.code === '23505') return res.status(400).json({ error: 'Login uzhe sushchestvuet' });
+    res.status(500).json({ error: 'Oshibka' });
   }
 });
 
@@ -317,33 +317,33 @@ app.delete('/agents/:id', adminAuth, async (req, res) => {
   try {
     await db.query(`UPDATE agents SET is_active = FALSE WHERE id = $1`, [req.params.id]);
     res.json({ ok: true });
-  } catch (err) { res.status(500).json({ error: 'Ошибка' }); }
+  } catch (err) { res.status(500).json({ error: 'Oshibka' }); }
 });
 
 app.get('/outlets', adminAuth, async (req, res) => {
   try {
     const result = await db.query(`SELECT id, name, address, latitude, longitude, category, is_active FROM outlets ORDER BY name`);
     res.json(result.rows);
-  } catch (err) { res.status(500).json({ error: 'Ошибка' }); }
+  } catch (err) { res.status(500).json({ error: 'Oshibka' }); }
 });
 
 app.post('/outlets', adminAuth, async (req, res) => {
   const { name, address, latitude, longitude, category } = req.body;
-  if (!name) return res.status(400).json({ error: 'Укажи название точки' });
+  if (!name) return res.status(400).json({ error: 'Ukazi nazvanie tochki' });
   try {
     await db.query(
       `INSERT INTO outlets (name, address, latitude, longitude, category) VALUES ($1, $2, $3, $4, $5)`,
       [name, address || '', latitude || null, longitude || null, category || '']
     );
     res.json({ ok: true });
-  } catch (err) { res.status(500).json({ error: 'Ошибка' }); }
+  } catch (err) { res.status(500).json({ error: 'Oshibka' }); }
 });
 
 app.delete('/outlets/:id', adminAuth, async (req, res) => {
   try {
     await db.query(`UPDATE outlets SET is_active = FALSE WHERE id = $1`, [req.params.id]);
     res.json({ ok: true });
-  } catch (err) { res.status(500).json({ error: 'Ошибка' }); }
+  } catch (err) { res.status(500).json({ error: 'Oshibka' }); }
 });
 
 app.get('/routes', adminAuth, async (req, res) => {
@@ -360,20 +360,27 @@ app.get('/routes', adminAuth, async (req, res) => {
       ORDER BY rs.planned_order
     `, [agent_id, date]);
     res.json(result.rows);
-  } catch (err) { res.status(500).json({ error: 'Ошибка' }); }
+  } catch (err) { res.status(500).json({ error: 'Oshibka' }); }
 });
 
 app.post('/routes', adminAuth, async (req, res) => {
   const { agent_id, date, outlet_ids } = req.body;
   if (!agent_id || !date || !outlet_ids || !outlet_ids.length) {
-    return res.status(400).json({ error: 'Укажи агента, дату и точки' });
+    return res.status(400).json({ error: 'Ukazi agenta, datu i tochki' });
   }
   try {
-    const existing = await db.query(`SELECT id FROM routes WHERE agent_id = $1 AND route_date = $2`, [agent_id, date]);
+    const existing = await db.query(
+      `SELECT id FROM routes WHERE agent_id = $1 AND route_date = $2`,
+      [agent_id, date]
+    );
     if (existing.rows.length) {
-      await db.query(`UPDATE visits SET route_stop_id = NULL WHERE route_stop_id IN (SELECT id FROM route_stops WHERE route_id = $1)`, [existing.rows[0].id]);
-      await db.query(`DELETE FROM route_stops WHERE route_id = $1`, [existing.rows[0].id]);
-      await db.query(`DELETE FROM routes WHERE id = $1`, [existing.rows[0].id]);
+      const routeId = existing.rows[0].id;
+      await db.query(
+        `UPDATE visits SET route_stop_id = NULL WHERE route_stop_id IN (SELECT id FROM route_stops WHERE route_id = $1)`,
+        [routeId]
+      );
+      await db.query(`DELETE FROM route_stops WHERE route_id = $1`, [routeId]);
+      await db.query(`DELETE FROM routes WHERE id = $1`, [routeId]);
     }
     const route = await db.query(
       `INSERT INTO routes (agent_id, route_date, status) VALUES ($1, $2, 'planned') RETURNING id`,
@@ -389,10 +396,11 @@ app.post('/routes', adminAuth, async (req, res) => {
     res.json({ ok: true });
   } catch (err) {
     console.error(err);
-    res.status(500).json({ error: 'Ошибка' });
+    res.status(500).json({ error: 'Oshibka' });
   }
 });
 
 app.listen(PORT, () => {
-  console.log(`Сервер запущен на порту ${PORT}`);
+  console.log(`Server started on port ${PORT}`);
   console.log(`http://localhost:${PORT}`);
+});
