@@ -103,13 +103,13 @@ app.get('/agent/:id/route-today', adminAuth, async (req, res) => {
   }
 });
 
-app.post('/visit', auth, async (req, res) => {
+function calcDistance(lat1, lon1, lat2, lon2) { const R = 6371000; const dLat = (lat2-lat1)*Math.PI/180; const dLon = (lon2-lon
   const { outlet_id, route_stop_id, latitude, longitude, result, note } = req.body;
   if (!outlet_id) return res.status(400).json({ error: 'Нужен outlet_id' });
   try {
-    const visitResult = await db.query(
+    let isNear = null; if (latitude && longitude && currentStop) { } const visitResult = await db.query(
       `INSERT INTO visits (agent_id, outlet_id, route_stop_id, latitude, longitude, result, note) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id`,
-      [req.agent.id, outlet_id, route_stop_id || null, latitude || null, longitude || null, result || 'visited', note || null]
+      [req.agent.id, outlet_id, route_stop_id || null, latitude || null, longitude || null, result || 'visited', note || null, isNear
     );
     const visitId = visitResult.rows[0].id;
     if (route_stop_id) {
