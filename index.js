@@ -327,6 +327,13 @@ app.get('/outlets', adminAuth, async (req, res) => {
   } catch (err) { res.status(500).json({ error: 'Oshibka' }); }
 });
 
+app.get('/outlets/all', auth, async (req, res) => {
+  try {
+    const result = await db.query(`SELECT id, name, address, latitude, longitude, category FROM outlets WHERE is_active = TRUE ORDER BY name`);
+    res.json(result.rows);
+  } catch (err) { res.status(500).json({ error: 'Oshibka' }); }
+});
+
 app.post('/outlets', adminAuth, async (req, res) => {
   const { name, address, latitude, longitude, category } = req.body;
   if (!name) return res.status(400).json({ error: 'Ukazi nazvanie tochki' });
@@ -375,10 +382,7 @@ app.post('/routes', adminAuth, async (req, res) => {
     );
     if (existing.rows.length) {
       const routeId = existing.rows[0].id;
-      await db.query(
-        `UPDATE visits SET route_stop_id = NULL WHERE route_stop_id IN (SELECT id FROM route_stops WHERE route_id = $1)`,
-        [routeId]
-      );
+      await db.query(`UPDATE visits SET route_stop_id = NULL WHERE route_stop_id IN (SELECT id FROM route_stops WHERE route_id = $1)`, [routeId]);
       await db.query(`DELETE FROM route_stops WHERE route_id = $1`, [routeId]);
       await db.query(`DELETE FROM routes WHERE id = $1`, [routeId]);
     }
@@ -394,6 +398,77 @@ app.post('/routes', adminAuth, async (req, res) => {
       );
     }
     res.json({ ok: true });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Oshibka' });
+  }
+});
+
+app.get('/schedules/:agent_id', adminAuth, async (req, res) => {
+  try {
+    const result = await db.query(`
+      SELECT os.id, os.days_of_week, os.is_active,
+        o.id AS outlet_id, o.name AS outlet_name, o.address, o.category
+      FROM outlet_schedules os
+      JOIN outlets o ON o.id = os.outlet_id
+      WHERE os.agent_id = $1 AND os.is_active = TRUE
+      ORDER BY o.name
+    `, [req.params.agent_id]);
+    res.json(result.rows);
+  } catch (err) { res.status(500).json({ error: 'Oshibka' }); }
+});
+
+app.post('/schedules', adminAuth, async (req, res) => {
+  const { agent_id, outlet_id, days_of_week } = req.body;
+  if (!agent_id || !outlet_id || !days_of_week || !days_of_week.length) {
+    return res.status(400).json({ error: 'Zapolni vse polya' });
+  }
+  try {
+    await db.query(`
+      INSERT INTO outlet_schedules (agent_id, outlet_id, days_of_week)
+      VALUES ($1, $2, $3)
+      ON CONFLICT (agent_id, outlet_id) DO UPDATE SET days_of_week = $3, is_active = TRUE
+    `, [agent_id, outlet_id, days_of_week]);
+    res.json({ ok: true });
+  } catch (err) { res.status(500).json({ error: 'Oshibka' }); }
+});
+
+app.delete('/schedules/:id', adminAuth, async (req, res) => {
+  try {
+    await db.query(`UPDATE outlet_schedules SET is_active = FALSE WHERE id = $1`, [req.params.id]);
+    res.json({ ok: true });
+  } catch (err) { res.status(500).json({ error: 'Oshibka' }); }
+});
+
+app.post('/schedules/generate-all', adminAuth, async (req, res) => {
+  const today = new Date();
+  const dayOfWeek = today.getDay();
+  const dateStr = today.toISOString().split('T')[0];
+  try {
+    const agents = await db.query(`SELECT id FROM agents WHERE is_active = TRUE`);
+    let created = 0;
+    for (const agent of agents.rows) {
+      const schedules = await db.query(`
+        SELECT outlet_id FROM outlet_schedules
+        WHERE agent_id = $1 AND is_active = TRUE AND $2 = ANY(days_of_week)
+      `, [agent.id, dayOfWeek]);
+      if (!schedules.rows.length) continue;
+      const existing = await db.query(`SELECT id FROM routes WHERE agent_id = $1 AND route_date = $2`, [agent.id, dateStr]);
+      if (existing.rows.length) continue;
+      const route = await db.query(
+        `INSERT INTO routes (agent_id, route_date, status) VALUES ($1, $2, 'planned') RETURNING id`,
+        [agent.id, dateStr]
+      );
+      const routeId = route.rows[0].id;
+      for (let i = 0; i < schedules.rows.length; i++) {
+        await db.query(
+          `INSERT INTO route_stops (route_id, outlet_id, planned_order) VALUES ($1, $2, $3)`,
+          [routeId, schedules.rows[i].outlet_id, i + 1]
+        );
+      }
+      created++;
+    }
+    res.json({ ok: true, created });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Oshibka' });
